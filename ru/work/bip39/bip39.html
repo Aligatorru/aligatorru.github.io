@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Двоичный шифратор + BIP-39 офлайн</title>
+  <title>BIP-39 шифратор</title>
+
   <style>
     :root{
       --fg:#111; --muted:#666; --bg:#fff;
@@ -167,26 +168,62 @@
   </div>
 
   <script>
-    // --- Алфавит/классификация
-    const vowels = new Set("аеёиоуыэюя".split(""));
-    const cyrillicRegex = /[А-ЯЁа-яё]/g;
+
+    // --- Упрощение букв (убираем диакритику, ñ → n, ç → c и т.д.)
+    function normalizeChar(ch) {
+        // если русская "ё" и "й" — оставляем как есть
+        if (ch === "ё" || ch === "Ё") return ch;
+        if (ch === "й" || ch === "Й") return ch;
+
+        // NFD-разложение + удаление диакритики для латиницы
+        let base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        // спец-случаи испанский/португальский
+        base = base.replace(/ñ/gi, "n").replace(/ç/gi, "c").replace(/ü/gi, "u");
+
+        return base.toLowerCase();
+    }
+
+    // --- Гласные для всех языков (рус+латиница)
+    const vowels = new Set("аеёиоуыэюяaeiou".split(""));
+
+    // --- Универсальная проверка (кириллица или латиница)
+    const letterRegex = /\p{L}/gu;
 
     const groupMap2 = {
-      "а": "00", "д": "00", "з": "00", "л": "00", "п": "00", "у": "00", "ч": "00", "ы": "00", "я": "00",
-      "б": "01", "е": "01", "и": "01", "м": "01", "р": "01", "ф": "01", "ш": "01", "ь": "01",
-      "в": "10", "ё": "10", "й": "10", "н": "10", "с": "10", "х": "10", "щ": "10", "э": "10",
-      "г": "11", "ж": "11", "к": "11", "о": "11", "т": "11", "ц": "11", "ъ": "11", "ю": "11"
+        // --- кириллица
+        "а": "00", "д": "00", "з": "00", "л": "00", "п": "00", "у": "00", "ч": "00", "ы": "00", "я": "00",
+        "б": "01", "е": "01", "и": "01", "м": "01", "р": "01", "ф": "01", "ш": "01", "ь": "01",
+        "в": "10", "ё": "10", "й": "10", "н": "10", "с": "10", "х": "10", "щ": "10", "э": "10",
+        "г": "11", "ж": "11", "к": "11", "о": "11", "т": "11", "ц": "11", "ъ": "11", "ю": "11",
+
+        // --- латиница
+        "a":"00","e":"00","i":"00","m":"00","q":"00","u":"00","y":"00",
+        "b":"01","f":"01","j":"01","n":"01","r":"01","v":"01","z":"01",
+        "c":"10","g":"10","k":"10","o":"10","s":"10","w":"10",
+        "d":"11","h":"11","l":"11","p":"11","t":"11","x":"11"
     };
 
     const groupMap3 = {
-      "а": "000", "з": "000", "п": "000", "ч": "000", "я": "000",
-      "б": "001", "и": "001", "р": "001", "ш": "001",
-      "в": "010", "й": "010", "с": "010", "щ": "010",
-      "г": "011", "к": "011", "т": "011", "ъ": "011",
-      "д": "100", "л": "100", "у": "100", "ы": "100",
-      "е": "101", "м": "101", "ф": "101", "ь": "101",
-      "ё": "110", "н": "110", "х": "110", "э": "110",
-      "ж": "111", "о": "111", "ц": "111", "ю": "111"
+        // --- кириллица
+        "а": "000", "з": "000", "п": "000", "ч": "000", "я": "000",
+        "б": "001", "и": "001", "р": "001", "ш": "001",
+        "в": "010", "й": "010", "с": "010", "щ": "010",
+        "г": "011", "к": "011", "т": "011", "ъ": "011",
+        "д": "100", "л": "100", "у": "100", "ы": "100",
+        "е": "101", "м": "101", "ф": "101", "ь": "101",
+        "ё": "110", "н": "110", "х": "110", "э": "110",
+        "ж": "111", "о": "111", "ц": "111", "ю": "111",
+
+        // --- латиница
+        "a":"000","i":"000","q":"000","y":"000",
+        "b":"001","j":"001","r":"001","z":"001",
+        "c":"010","k":"010","s":"010",
+        "d":"011","l":"011","t":"011",
+        "e":"100","m":"100","u":"100",
+        "f":"101","n":"101","v":"101",
+        "g":"110","o":"110","w":"110",
+        "h":"111","p":"111","x":"111"
     };
 
     // --- DOM
@@ -2322,53 +2359,35 @@ zoo
 
     // --- Режим 1: 1-битная схема (гласные=0, согласные=1)
     function fromPhraseToBits(text){
-      const letters = (text.match(cyrillicRegex) || []).map(ch => ch.toLowerCase());
-      const coloredLetters = letters.map(ch => `<span class="${vowels.has(ch) ? "vowel" : "cons"}">${ch}</span>`).join("");
-      const bitsArr = letters.map(ch => vowels.has(ch) ? "0" : "1");
-      const coloredBits = bitsArr.map(b => `<span class="${b==="0"?"zero":"one"}">${b}</span>`).join("");
-      return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
+        const letters = (text.match(letterRegex) || []).map(ch => normalizeChar(ch));
+        const coloredLetters = letters.map(ch => `<span class="${vowels.has(ch) ? "vowel" : "cons"}">${ch}</span>`).join("");
+        const bitsArr = letters.map(ch => vowels.has(ch) ? "0" : "1");
+        const coloredBits = bitsArr.map(b => `<span class="${b==="0"?"zero":"one"}">${b}</span>`).join("");
+        return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
     }
 
     // --- Режим 2: 2-битная схема (4 группы)
     function fromPhraseToBits2(text){
-      const letters = (text.match(cyrillicRegex) || []).map(ch => ch.toLowerCase());
-      // Буквы красим по группе (4 цвета)
-      const coloredLetters = letters.map(ch => {
-        const grp = groupMap2[ch];
-        if (!grp) return ch; // на всякий
-        return `<span class="g2-${grp}">${ch}</span>`;
-      }).join("");
-
-      // Для каждой буквы берём 2-битное представление
-      const bitsArr = letters.map(ch => groupMap2[ch] || "");
-      // Биты красим блоками по группе той же буквы
-      const coloredBits = bitsArr.map(b => {
-        if (!b) return ""; // защита
-        return `<span class="g2-${b}">${b}</span>`;
-      }).join("");
-
-      return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
+        const letters = (text.match(letterRegex) || []).map(ch => normalizeChar(ch));
+        const coloredLetters = letters.map(ch => {
+            const grp = groupMap2[ch];
+            return grp ? `<span class="g2-${grp}">${ch}</span>` : ch;
+        }).join("");
+        const bitsArr = letters.map(ch => groupMap2[ch] || "");
+        const coloredBits = bitsArr.map(b => b ? `<span class="g2-${b}">${b}</span>` : "").join("");
+        return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
     }
 
     // --- Режим 3: 3-битная схема (8 групп)
     function fromPhraseToBits3(text){
-      const letters = (text.match(cyrillicRegex) || []).map(ch => ch.toLowerCase());
-      // Буквы красим по группе (8 цветов)
-      const coloredLetters = letters.map(ch => {
-        const grp = groupMap3[ch];
-        if (!grp) return ch;
-        return `<span class="g3-${grp}">${ch}</span>`;
-      }).join("");
-
-      // Для каждой буквы берём 3-битное представление
-      const bitsArr = letters.map(ch => groupMap3[ch] || "");
-      // Биты красим блоками по группе той же буквы
-      const coloredBits = bitsArr.map(b => {
-        if (!b) return "";
-        return `<span class="g3-${b}">${b}</span>`;
-      }).join("");
-
-      return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
+        const letters = (text.match(letterRegex) || []).map(ch => normalizeChar(ch));
+        const coloredLetters = letters.map(ch => {
+            const grp = groupMap3[ch];
+            return grp ? `<span class="g3-${grp}">${ch}</span>` : ch;
+        }).join("");
+        const bitsArr = letters.map(ch => groupMap3[ch] || "");
+        const coloredBits = bitsArr.map(b => b ? `<span class="g3-${b}">${b}</span>` : "").join("");
+        return { letters, coloredLetters, bits: bitsArr.join(""), coloredBits };
     }
 
     function getCleanBits(s){
