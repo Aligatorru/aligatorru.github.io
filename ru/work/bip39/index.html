@@ -4963,7 +4963,7 @@ zoo
             .then(blob => {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = "bep39.html"; // имя сохраняемого файла
+                link.download = "bip39.html"; // имя сохраняемого файла
                 link.click();
                 URL.revokeObjectURL(link.href);
             });
