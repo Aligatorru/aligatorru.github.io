@@ -118,7 +118,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Двоичный шифратор для русских слов + BIP-39 <span class="len" id="len">(длина: 0)</span></h1>
+    <h1>Щифратор слов + BIP-39 <span class="len" id="len">(длина: 0)</span></h1>
     <div class="top-note">Введите фразу для создания СИД-фразы. Пробелы/знаки удаляются. Ниже можно получить мнемонику BIP-39 из бинарной последовательности. <br>
         <span class="vowel">
             <b>Внимание!</b> Никогда не создавайте реальные СИД-фразы онлайн! 
@@ -129,7 +129,7 @@
 
     <div class="grid">
       <div class="card">
-        <div class="label">Ввод фразы (русские буквы)</div>
+        <div class="label">Ввод фразы (русские и латинские буквы)</div>
         <textarea id="input" placeholder="Введи фразу — результат ниже обновится мгновенно."></textarea>
 
         <div class="row" style="margin-top:10px">
@@ -157,8 +157,8 @@
       </div>
 
       <div class="card">
-        <div class="label">BIP-39: настройка защиты (соль / passphrase)</div>
-        <input type="text" id="saltInput" placeholder="Введите соль / фразу защиты" style="width:100%; padding:6px 10px; margin-bottom:10px; border:1px solid var(--border); border-radius:8px" />
+        <div class="label">BIP-39: настройка защиты (passphrase)</div>
+        <input type="text" id="saltInput" placeholder="Введите фразу защиты" style="width:100%; padding:6px 10px; margin-bottom:10px; border:1px solid var(--border); border-radius:8px" />
 
         <div class="label">BIP-39: настройки</div>
         <div class="row" style="margin-bottom:8px">
@@ -4956,7 +4956,7 @@ zoo
   
   <script>
     function downloadFile() {
-        fetch('bep39.html')
+        fetch('bip39.html')
             .then(res => res.blob())
             .then(blob => {
                 const link = document.createElement('a');
